@@ -10,7 +10,6 @@ import { ErrorAlert } from "@/components/error-alert";
 import { useTokenList } from "@/hooks/use-token-list";
 import { useEncryptedBalance } from "@/hooks/use-encrypted-balance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatEther } from "viem";
 import {
   Select,
   SelectContent,
@@ -18,15 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { TokenData } from "@/hooks/use-token-list";
+import { useSelectedToken } from "@/hooks/use-selected-token";
+import { TokenInfo } from "@/types";
 
 export default function Home() {
   const { tokens } = useTokenList();
-  const [selectedToken, setSelectedToken] = useState<TokenData | null>(
-    tokens[0] || null
-  );
+  const { selectedToken, selectToken } = useSelectedToken();
   const { decryptedBalance, isLoading } = useEncryptedBalance(
-    selectedToken?.address,
+    selectedToken?.address as `0x${string}`,
     selectedToken?.decimals
   );
 
@@ -58,7 +56,7 @@ export default function Home() {
                       value={selectedToken?.address}
                       onValueChange={(value) => {
                         const token = tokens.find((t) => t.address === value);
-                        setSelectedToken(token || null);
+                        selectToken(token as TokenInfo);
                       }}
                     >
                       <SelectTrigger className="w-[180px]">
