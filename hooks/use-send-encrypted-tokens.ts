@@ -7,7 +7,14 @@ import { parseEther } from "viem";
 export function useSendEncryptedTokens(tokenAddress: `0x${string}`) {
   const [error, setError] = useState<string | null>(null);
 
-  const { writeContract, isPending, isSuccess } = useWriteContract();
+  const {
+    writeContract,
+    isPending,
+    isSuccess,
+    isError,
+    error: writeError,
+    reset,
+  } = useWriteContract();
 
   const sendTokens = async ({
     amount,
@@ -28,15 +35,24 @@ export function useSendEncryptedTokens(tokenAddress: `0x${string}`) {
         args: [recipient, { value: encryptedAmountStr as `0x${string}` }],
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send tokens");
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to send tokens";
+      setError(errorMessage);
       throw err;
     }
+  };
+
+  const resetStates = () => {
+    setError(null);
+    reset?.();
   };
 
   return {
     sendTokens,
     isPending,
     isSuccess,
-    error,
+    isError,
+    error: error || (writeError?.message ?? null),
+    reset: resetStates,
   };
 }

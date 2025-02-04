@@ -15,7 +15,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useToast } from "@/components/ui/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
 import { useSelectedToken } from "@/hooks/use-selected-token";
 import { useTokenList } from "@/hooks/use-token-list";
 
@@ -43,19 +42,15 @@ export function DeployTokenDrawer({
       initialSupply,
       decimals: 18,
       onSuccess: async (address) => {
-        // Close the drawer
         onOpenChange(false);
 
-        // Show success toast
         toast({
           title: "Token Deployed Successfully",
           description: `Your token has been deployed at ${address}`,
         });
 
-        // Refetch token list
         await refetchAll();
 
-        // Set the newly deployed token as selected
         selectToken({
           address,
           name,
@@ -63,7 +58,6 @@ export function DeployTokenDrawer({
           decimals: 0,
         });
 
-        // Reset form
         setName("");
         setSymbol("");
         setInitialSupply("");
