@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useReadContract, useWatchContractEvent } from "wagmi";
 import { DISCRETE_ERC20_ABI } from "@/lib/contracts";
 import { decryptBalance } from "@/app/actions/decrypt-balance";
@@ -17,6 +17,7 @@ export function useEncryptedBalance(
   decimals: number = 0
 ) {
   const { address } = useAccount();
+  const queryClient = useQueryClient();
 
   // Get the encrypted balance
   const {
@@ -30,6 +31,7 @@ export function useEncryptedBalance(
     args: [address as `0x${string}`],
     query: {
       enabled: !!address && !!tokenAddress,
+      refetchInterval: 2000, // Poll every 2 seconds
     },
   });
 
@@ -51,13 +53,13 @@ export function useEncryptedBalance(
     data: balanceData,
     isLoading: isLoadingDecrypted,
     error,
-    refetch: refetchDecrypted,
   } = useQuery({
     queryKey: [
       "decrypted-balance",
       encryptedBalance,
       tokenAddress,
       actualDecimals,
+      address,
     ],
     queryFn: async () => {
       if (!encryptedBalance) return { raw: 0n, formatted: "0" };
@@ -133,12 +135,33 @@ export function useEncryptedBalance(
     },
   });
 
-  // Automatically refetch decrypted balance when encrypted balance changes
+  // Invalidate queries when encrypted balance changes
   useEffect(() => {
     if (encryptedBalance) {
-      refetchDecrypted();
+      queryClient.invalidateQueries({
+        queryKey: [
+          "decrypted-balance",
+          encryptedBalance,
+          tokenAddress,
+          actualDecimals,
+          address,
+        ],
+      });
     }
-  }, [encryptedBalance, refetchDecrypted]);
+  }, [encryptedBalance, tokenAddress, actualDecimals, address, queryClient]);
+
+  const refetch = async () => {
+    await refetchEncrypted();
+    await queryClient.invalidateQueries({
+      queryKey: [
+        "decrypted-balance",
+        encryptedBalance,
+        tokenAddress,
+        actualDecimals,
+        address,
+      ],
+    });
+  };
 
   return {
     encryptedBalance,
@@ -147,5 +170,6 @@ export function useEncryptedBalance(
     decimals: actualDecimals,
     isLoading: isLoadingEncrypted || isLoadingDecrypted,
     error,
+    refetch,
   };
 }
