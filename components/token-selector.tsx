@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useAccount } from "wagmi";
+import { useEffect } from "react";
 import {
   Select,
   SelectContent,
@@ -7,40 +6,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TokenInfo } from "@/types";
 import { useTokenList } from "@/hooks/use-token-list";
+import { useSelectedToken } from "@/hooks/use-selected-token";
 
-interface TokenSelectorProps {
-  onSelectToken: (token: TokenInfo) => void;
-}
+export function TokenSelector() {
+  const { tokens, isLoading } = useTokenList();
+  const { selectedToken, selectToken } = useSelectedToken();
 
-export function TokenSelector({ onSelectToken }: TokenSelectorProps) {
-  const { address } = useAccount();
-  const { tokens, isLoading, error } = useTokenList(address);
-  const [selectedToken, setSelectedToken] = useState<string | null>(null);
-
+  // Auto-select first token if none is selected
   useEffect(() => {
     if (tokens && tokens.length > 0 && !selectedToken) {
-      setSelectedToken(tokens[0].address);
-      onSelectToken(tokens[0]);
+      selectToken(tokens[0]);
     }
-  }, [tokens, selectedToken, onSelectToken]);
+  }, [tokens, selectedToken, selectToken]);
 
   if (isLoading) return <div>Loading tokens...</div>;
-  if (error) return <div>Error loading tokens: {error}</div>;
   if (!tokens || tokens.length === 0) return <div>No tokens available</div>;
 
   return (
     <Select
-      value={selectedToken || undefined}
+      value={selectedToken?.address}
       onValueChange={(value) => {
-        setSelectedToken(value);
         const token = tokens.find((t) => t.address === value);
-        if (token) onSelectToken(token);
+        if (token) selectToken(token);
       }}
     >
       <SelectTrigger className="w-[200px]">
-        <SelectValue placeholder="Select a token" />
+        <SelectValue placeholder="Select a token">
+          {selectedToken
+            ? `${selectedToken.symbol} - ${selectedToken.name}`
+            : "Select a token"}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {tokens.map((token) => (

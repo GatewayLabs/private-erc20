@@ -1,40 +1,46 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, useReadContract } from "wagmi";
-import {
-  ENCRYPTED_TOKEN_FACTORY_ABI,
-  ENCRYPTED_TOKEN_FACTORY_ADDRESS,
-} from "@/lib/contracts";
-import { decrypt, initializeEncryption } from "@/lib/encryption";
-import { EncryptedBalance } from "@/types";
+import { DISCRETE_ERC20_ABI } from "@/lib/contracts";
+import { decryptBalance } from "@/app/actions/decrypt-balance";
+import { formatEther } from "viem";
 
-export function useEncryptedBalance(tokenAddress?: string) {
+export function useEncryptedBalance(tokenAddress?: `0x${string}`) {
   const { address } = useAccount();
 
   const { data: encryptedBalance, isLoading: isLoadingEncrypted } =
     useReadContract({
-      address:
-        (tokenAddress as `0x${string}`) || ENCRYPTED_TOKEN_FACTORY_ADDRESS,
-      abi: ENCRYPTED_TOKEN_FACTORY_ABI,
-      functionName: "encryptedBalanceOf",
-      args: [address],
+      address: tokenAddress,
+      abi: DISCRETE_ERC20_ABI,
+      functionName: "balanceOf",
+      args: [address as `0x${string}`],
       query: {
         enabled: !!address && !!tokenAddress,
       },
-    }) as { data: EncryptedBalance | undefined; isLoading: boolean };
+    });
 
-  const { data: decryptedBalance, isLoading: isLoadingDecrypted } = useQuery({
+  const {
+    data: decryptedBalance,
+    isLoading: isLoadingDecrypted,
+    error,
+  } = useQuery({
     queryKey: ["decrypted-balance", encryptedBalance, tokenAddress],
     queryFn: async () => {
-      if (!encryptedBalance) return null;
-      await initializeEncryption();
-      return await decrypt(encryptedBalance.value);
+      if (!encryptedBalance) return "0";
+      try {
+        const decryptedHex = await decryptBalance(encryptedBalance);
+        return formatEther(BigInt(decryptedHex));
+      } catch (err) {
+        console.error("Error decrypting balance:", err);
+        return "0";
+      }
     },
     enabled: !!encryptedBalance,
   });
 
   return {
     encryptedBalance,
-    decryptedBalance,
+    decryptedBalance: decryptedBalance || "0",
     isLoading: isLoadingEncrypted || isLoadingDecrypted,
+    error,
   };
 }

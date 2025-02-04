@@ -1,6 +1,5 @@
 "use client";
 
-import { useAccount } from "wagmi";
 import { useTokenList } from "@/hooks/use-token-list";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +18,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useEncryptedBalance } from "@/hooks/use-encrypted-balance";
-import { formatEther } from "viem";
+import { useSelectedToken } from "@/hooks/use-selected-token";
+import { TokenInfo } from "@/types";
 
 export function TokenListDrawer({
   open,
@@ -28,8 +28,7 @@ export function TokenListDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { address } = useAccount();
-  const { data: tokens = [] } = useTokenList(address);
+  const { tokens } = useTokenList();
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -50,7 +49,11 @@ export function TokenListDrawer({
               </TableHeader>
               <TableBody>
                 {tokens.map((token) => (
-                  <TokenRow key={token.address} token={token} />
+                  <TokenRow
+                    key={token.address}
+                    token={token}
+                    onClose={() => onOpenChange(false)}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -68,10 +71,20 @@ export function TokenListDrawer({
 
 function TokenRow({
   token,
+  onClose,
 }: {
-  token: { address: string; name: string; symbol: string };
+  token: TokenInfo;
+  onClose: () => void;
 }) {
-  const { decryptedBalance, isLoading } = useEncryptedBalance(token.address);
+  const { decryptedBalance, isLoading } = useEncryptedBalance(
+    token.address as `0x${string}`
+  );
+  const { selectToken } = useSelectedToken();
+
+  const handleSelect = () => {
+    selectToken(token);
+    onClose();
+  };
 
   return (
     <TableRow>
@@ -82,14 +95,14 @@ function TokenRow({
           "Loading..."
         ) : decryptedBalance ? (
           <span>
-            {formatEther(decryptedBalance)} {token.symbol}
+            {decryptedBalance} {token.symbol}
           </span>
         ) : (
           "0.00"
         )}
       </TableCell>
       <TableCell>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={handleSelect}>
           Select
         </Button>
       </TableCell>
