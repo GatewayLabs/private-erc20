@@ -1,26 +1,18 @@
 import {
   encryptWithCurrentKey,
   decryptWithCurrentKey,
-  generateNewKeyPair,
   getCurrentPublicKey,
 } from "./key-management";
 
-export async function initializeEncryption() {
-  if (!getCurrentPublicKey()) {
-    await generateNewKeyPair();
-  }
-}
-
-export async function encrypt(value: bigint): Promise<string> {
-  await initializeEncryption();
-  return encryptWithCurrentKey(value);
+export async function encrypt(value: bigint): Promise<`0x${string}`> {
+  const encrypted = await encryptWithCurrentKey(value);
+  return encrypted as `0x${string}`;
 }
 
 export async function decrypt(encryptedValue: string): Promise<bigint> {
-  await initializeEncryption();
   return decryptWithCurrentKey(encryptedValue);
 }
 
-export function getPublicKey(): string | null {
+export function getPublicKey(): { n: `0x${string}`; g: `0x${string}` } {
   return getCurrentPublicKey();
 }
