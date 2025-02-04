@@ -24,15 +24,50 @@ import { TokenInfo } from "@/types";
 import { ErrorAlert } from "@/components/error-alert";
 import * as React from "react";
 import { useTransactionHistory } from "@/hooks/use-transaction-history";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Lock, Unlock } from "lucide-react";
 import { useAccount } from "wagmi";
 import { decryptBalance } from "@/app/actions/decrypt-balance";
+import { useToast } from "@/components/ui/use-toast";
+
 interface TransactionHistoryProps {
   selectedToken: TokenInfo | null;
 }
 
+// Utility function to shorten addresses
+const shortenAddress = (address: string) => {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+// Utility function to format dates
+const formatDate = (timestamp: number) => {
+  const date = new Date(timestamp * 1000); // Convert to milliseconds
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+interface Transaction {
+  hash: string;
+  from: string;
+  to: string;
+  timestamp: number;
+  status: "confirmed" | "pending" | "failed";
+  encryptedAmount: string;
+}
+
 export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
   const { address } = useAccount();
+  const { toast } = useToast();
+  const [decryptedAmounts, setDecryptedAmounts] = React.useState<
+    Record<string, string>
+  >({});
+  const [decryptingHashes, setDecryptingHashes] = React.useState<Set<string>>(
+    new Set()
+  );
   const {
     transactions,
     isError,
@@ -56,6 +91,29 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
     overscan: 5,
   });
 
+  const handleDecrypt = async (transaction: Transaction) => {
+    try {
+      setDecryptingHashes((prev) => new Set(prev).add(transaction.hash));
+      const decrypted = await decryptBalance(transaction.encryptedAmount);
+      setDecryptedAmounts((prev) => ({
+        ...prev,
+        [transaction.hash]: formatEther(decrypted),
+      }));
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to decrypt amount. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDecryptingHashes((prev) => {
+        const next = new Set(prev);
+        next.delete(transaction.hash);
+        return next;
+      });
+    }
+  };
+
   if (isError) {
     return (
       <ErrorAlert
@@ -71,11 +129,12 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
         <CardTitle>Transaction History</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex space-x-4 mb-4">
+        <div className="flex flex-col md:flex-row gap-4 mb-4">
           <Input
             placeholder="Search by address"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="w-full md:w-auto"
           />
           <Select
             value={filter}
@@ -83,7 +142,7 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
               setFilter(value)
             }
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full md:w-[180px]">
               <SelectValue placeholder="Filter transactions" />
             </SelectTrigger>
             <SelectContent>
@@ -93,77 +152,72 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
             </SelectContent>
           </Select>
         </div>
-        <div ref={parentRef} style={{ height: "400px", overflow: "auto" }}>
+
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>To/From</TableHead>
+                <TableHead>Address</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Explorer</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const tx = transactions[virtualRow.index];
-                return (
-                  <TableRow key={tx.hash} data-index={virtualRow.index}>
-                    <TableCell>
-                      {new Date(tx.timestamp * 1000).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {tx.from === address ? "Sent" : "Received"}
-                    </TableCell>
-                    <TableCell className="font-mono">
-                      {tx.from === address ? tx.to : tx.from}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                          const decrypted = await decryptBalance(
-                            tx.encryptedAmount
-                          );
-                          alert(
-                            `Amount: ${formatEther(decrypted)} ${
-                              selectedToken?.symbol
-                            }`
-                          );
-                        }}
-                      >
-                        Decrypt Amount
-                      </Button>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                          tx.status === "confirmed"
-                            ? "bg-green-100 text-green-700"
-                            : tx.status === "pending"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {tx.status}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <a
-                        href={getBlockExplorerLink(tx.hash)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-blue-600 hover:text-blue-800"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        <span className="sr-only">View on block explorer</span>
-                      </a>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {transactions.map((transaction) => (
+                <TableRow key={transaction.hash}>
+                  <TableCell className="font-medium">
+                    {transaction.from.toLowerCase() === address?.toLowerCase()
+                      ? "Sent"
+                      : "Received"}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {transaction.from.toLowerCase() === address?.toLowerCase()
+                      ? shortenAddress(transaction.to)
+                      : shortenAddress(transaction.from)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {decryptedAmounts[transaction.hash] ? (
+                        <>
+                          <Unlock className="h-4 w-4 text-green-500" />
+                          <span>
+                            {decryptedAmounts[transaction.hash]}{" "}
+                            {selectedToken?.symbol}
+                          </span>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Lock className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDecrypt(transaction)}
+                            disabled={decryptingHashes.has(transaction.hash)}
+                          >
+                            {decryptingHashes.has(transaction.hash)
+                              ? "Decrypting..."
+                              : "Decrypt Amount"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>{formatDate(transaction.timestamp)}</TableCell>
+                  <TableCell>
+                    <a
+                      href={getBlockExplorerLink(transaction.hash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-primary hover:text-primary/80"
+                    >
+                      <span>View</span>
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>

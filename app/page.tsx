@@ -38,18 +38,18 @@ export default function Home() {
           />
         }
       >
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="mb-8 flex items-center justify-between">
+        <main className="flex-1 overflow-y-auto md:p-8 p-4 md:pt-8 pt-20">
+          <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h1 className="text-2xl font-bold">My Wallet</h1>
             <ConnectButton />
           </div>
-          <div className="grid gap-8">
+          <div className="grid gap-4 md:gap-8">
             <Card>
               <CardHeader>
                 <CardTitle>Balance</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-2">
                     <Select
                       value={selectedToken?.address}
@@ -58,7 +58,7 @@ export default function Home() {
                         selectToken(token as TokenInfo);
                       }}
                     >
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full md:w-[180px]">
                         <SelectValue placeholder="Select token" />
                       </SelectTrigger>
                       <SelectContent>
@@ -69,7 +69,7 @@ export default function Home() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <div className="text-3xl font-bold">
+                    <div className="text-2xl md:text-3xl font-bold">
                       {isLoading ? (
                         "Loading..."
                       ) : (
