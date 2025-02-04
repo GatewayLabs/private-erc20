@@ -7,8 +7,7 @@ import { SendMoneyDrawer } from "./send-money-drawer";
 import { DeployTokenDrawer } from "./deploy-token-drawer";
 import { TransactionHistoryDrawer } from "./transaction-history-drawer";
 import { TokenListDrawer } from "./token-list-drawer";
-import { useTokenList } from "@/hooks/use-token-list";
-import { useAccount } from "wagmi";
+import { useSelectedToken } from "@/hooks/use-selected-token";
 
 const navigation = [
   {
@@ -35,9 +34,7 @@ const navigation = [
 
 export function Sidebar() {
   const [openDrawer, setOpenDrawer] = useState<string | null>(null);
-  const { address } = useAccount();
-  const { data: tokens = [] } = useTokenList(address);
-  const selectedToken = tokens[0]; // For now, use the first token as selected
+  const { selectedToken } = useSelectedToken();
 
   const handleNavigation = (action: string) => {
     setOpenDrawer(action);

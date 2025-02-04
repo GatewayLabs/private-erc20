@@ -20,9 +20,7 @@ export async function encryptWithCurrentKey(value: bigint): Promise<string> {
   return "0x" + encrypted.toString(16); // Convert to hex string
 }
 
-export async function decryptWithCurrentKey(
-  encryptedValue: string
-): Promise<bigint> {
+export async function decryptWithCurrentKey(): Promise<bigint> {
   throw new Error(
     "Decryption is not supported in the browser. This should be done off-chain."
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { QuickActions } from "@/components/quick-actions";
 import { TransactionHistory } from "@/components/transaction-history";

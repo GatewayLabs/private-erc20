@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { decrypt } from "@/lib/encryption";
 import { formatEther } from "viem";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { TokenInfo } from "@/types";
@@ -27,7 +26,7 @@ import * as React from "react";
 import { useTransactionHistory } from "@/hooks/use-transaction-history";
 import { ExternalLink } from "lucide-react";
 import { useAccount } from "wagmi";
-
+import { decryptBalance } from "@/app/actions/decrypt-balance";
 interface TransactionHistoryProps {
   selectedToken: TokenInfo | null;
 }
@@ -36,7 +35,6 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
   const { address } = useAccount();
   const {
     transactions,
-    isLoading,
     isError,
     filter,
     setFilter,
@@ -126,7 +124,9 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
                         variant="ghost"
                         size="sm"
                         onClick={async () => {
-                          const decrypted = await decrypt(tx.encryptedAmount);
+                          const decrypted = await decryptBalance(
+                            tx.encryptedAmount
+                          );
                           alert(
                             `Amount: ${formatEther(decrypted)} ${
                               selectedToken?.symbol

@@ -19,12 +19,10 @@ import {
 } from "@/components/ui/select";
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { decrypt } from "@/lib/encryption";
 import { formatEther } from "viem";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { TokenInfo } from "@/types";
@@ -33,7 +31,7 @@ import * as React from "react";
 import { useTransactionHistory } from "@/hooks/use-transaction-history";
 import { ExternalLink } from "lucide-react";
 import { useAccount } from "wagmi";
-
+import { decryptBalance } from "@/app/actions/decrypt-balance";
 export function TransactionHistoryDrawer({
   open,
   onOpenChange,
@@ -46,7 +44,6 @@ export function TransactionHistoryDrawer({
   const { address } = useAccount();
   const {
     transactions,
-    isLoading,
     isError,
     filter,
     setFilter,
@@ -138,7 +135,7 @@ export function TransactionHistoryDrawer({
                             variant="ghost"
                             size="sm"
                             onClick={async () => {
-                              const decrypted = await decrypt(
+                              const decrypted = await decryptBalance(
                                 tx.encryptedAmount
                               );
                               alert(
