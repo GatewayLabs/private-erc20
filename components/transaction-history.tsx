@@ -1,8 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
 import {
   Table,
   TableBody,
@@ -24,66 +21,44 @@ import {
 import { decrypt } from "@/lib/encryption";
 import { formatEther } from "viem";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Transaction, TokenInfo } from "@/types";
+import { TokenInfo } from "@/types";
 import { ErrorAlert } from "@/components/error-alert";
 import * as React from "react";
-import { useInView } from "react-intersection-observer";
+import { useTransactionHistory } from "@/hooks/use-transaction-history";
+import { ExternalLink } from "lucide-react";
+import { useAccount } from "wagmi";
 
 interface TransactionHistoryProps {
   selectedToken: TokenInfo | null;
 }
 
-async function fetchTransactions({ pageParam = 0, queryKey }: any) {
-  const [_, address, tokenAddress] = queryKey;
-  // This would typically come from your indexer or API
-  const response = await fetch(
-    `/api/transactions?page=${pageParam}&address=${address}&token=${tokenAddress}`
-  );
-  return response.json();
-}
-
 export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
   const { address } = useAccount();
-  const { ref, inView } = useInView();
-  const [filter, setFilter] = useState<"all" | "sent" | "received">("all");
-  const [search, setSearch] = useState("");
-
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
-    useInfiniteQuery({
-      queryKey: ["transactions", address, selectedToken?.address],
-      queryFn: fetchTransactions,
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      enabled: !!address && !!selectedToken,
-      initialPageParam: 0,
-    });
-
-  useEffect(() => {
-    if (inView && hasNextPage) {
-      fetchNextPage();
-    }
-  }, [inView, hasNextPage, fetchNextPage]);
-
-  const filteredTransactions =
-    data?.pages.flatMap((page) =>
-      page.transactions.filter((tx: Transaction) => {
-        if (filter === "sent" && tx.from !== address) return false;
-        if (filter === "received" && tx.to !== address) return false;
-        if (search && !tx.to.toLowerCase().includes(search.toLowerCase()))
-          return false;
-        return true;
-      })
-    ) || [];
+  const {
+    transactions,
+    isLoading,
+    isError,
+    filter,
+    setFilter,
+    search,
+    setSearch,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    getBlockExplorerLink,
+    ref,
+  } = useTransactionHistory({ selectedToken });
 
   const parentRef = React.useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
-    count: filteredTransactions.length,
+    count: transactions.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 50,
     overscan: 5,
   });
 
-  if (status === "error") {
+  if (isError) {
     return (
       <ErrorAlert
         title="Error"
@@ -129,11 +104,12 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
                 <TableHead>To/From</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Explorer</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {virtualizer.getVirtualItems().map((virtualRow) => {
-                const tx = filteredTransactions[virtualRow.index];
+                const tx = transactions[virtualRow.index];
                 return (
                   <TableRow key={tx.hash} data-index={virtualRow.index}>
                     <TableCell>
@@ -173,6 +149,17 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
                       >
                         {tx.status}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <a
+                        href={getBlockExplorerLink(tx.hash)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        <span className="sr-only">View on block explorer</span>
+                      </a>
                     </TableCell>
                   </TableRow>
                 );
