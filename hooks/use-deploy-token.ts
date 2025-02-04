@@ -6,14 +6,13 @@ import {
   PAILLIER_ADDRESS,
 } from "@/lib/contracts";
 import { encrypt, getPublicKey } from "@/lib/encryption";
-import { type Hash, type TransactionReceipt } from "viem";
-import { parseTokenAmount } from "@/lib/format";
+import { parseEther, type Hash, type TransactionReceipt } from "viem";
 
 interface DeployTokenParams {
   name: string;
   symbol: string;
   decimals: number;
-  initialSupply: string; // Human-readable amount (e.g., "1000" for 1000 tokens)
+  initialSupply: string;
   onSuccess?: (address: `0x${string}`) => void;
 }
 
@@ -70,8 +69,7 @@ export function useDeployToken() {
       setTxHash(null);
       setSuccessCallback(() => onSuccess);
 
-      // Parse the human-readable amount to wei
-      const parsedAmount = parseTokenAmount(initialSupply, decimals);
+      const parsedAmount = parseEther(initialSupply);
       const encryptedAmountStr = await encrypt(parsedAmount);
       const publicKey = getPublicKey();
 

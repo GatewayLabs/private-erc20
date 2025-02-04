@@ -17,7 +17,7 @@ const g = BigInt("0x" + process.env.NEXT_PUBLIC_PUBLIC_KEY_G);
 const publicKey = new paillier.PublicKey(n, g);
 const privateKey = new paillier.PrivateKey(lambda, mu, publicKey);
 
-export async function decryptBalance(encryptedValue: string): Promise<string> {
+export async function decryptBalance(encryptedValue: string): Promise<bigint> {
   try {
     // Ensure the value is a proper hex string
     const cleanHex = encryptedValue.startsWith("0x")
@@ -30,8 +30,12 @@ export async function decryptBalance(encryptedValue: string): Promise<string> {
     // Decrypt the value
     const decryptedValue = privateKey.decrypt(encryptedBigInt);
 
-    // Return as hex string
-    return "0x" + decryptedValue.toString(16);
+    // Handle negative numbers (if the value is larger than n/2, it's negative)
+    if (decryptedValue > n / 2n) {
+      return decryptedValue - n;
+    }
+
+    return decryptedValue;
   } catch (error) {
     console.error("Failed to decrypt balance:", error);
     throw new Error(

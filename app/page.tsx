@@ -26,7 +26,8 @@ export default function Home() {
     tokens[0] || null
   );
   const { decryptedBalance, isLoading } = useEncryptedBalance(
-    selectedToken?.address
+    selectedToken?.address,
+    selectedToken?.decimals
   );
 
   return (
@@ -74,13 +75,10 @@ export default function Home() {
                     <div className="text-3xl font-bold">
                       {isLoading ? (
                         "Loading..."
-                      ) : decryptedBalance ? (
-                        <span>
-                          {formatEther(decryptedBalance)}{" "}
-                          {selectedToken?.symbol}
-                        </span>
                       ) : (
-                        `0.00 ${selectedToken?.symbol}`
+                        <span>
+                          {decryptedBalance} {selectedToken?.symbol}
+                        </span>
                       )}
                     </div>
                   </div>
