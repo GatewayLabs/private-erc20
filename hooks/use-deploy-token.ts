@@ -1,40 +1,77 @@
-import { useState } from "react";
-import { useWriteContract } from "wagmi";
+import { useState, useCallback } from "react";
+import { useWriteContract, usePublicClient } from "wagmi";
 import {
   DISCRETE_ERC20_FACTORY_ABI,
   DISCRETE_ERC20_FACTORY_ADDRESS,
   PAILLIER_ADDRESS,
 } from "@/lib/contracts";
-import { encrypt } from "@/lib/encryption";
-import { parseEther } from "viem";
+import { encrypt, getPublicKey } from "@/lib/encryption";
+import { parseEther, type Hash, type TransactionReceipt } from "viem";
 
 interface DeployTokenParams {
   name: string;
   symbol: string;
   decimals: number;
   initialSupply: string;
-  publicKey: {
-    n: `0x${string}`;
-    g: `0x${string}`;
-  };
+  onSuccess?: (address: `0x${string}`) => void;
 }
 
 export function useDeployToken() {
   const [error, setError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<Hash | null>(null);
+  const [successCallback, setSuccessCallback] = useState<
+    ((address: `0x${string}`) => void) | null
+  >(null);
+  const publicClient = usePublicClient();
 
-  const { writeContract, isPending, isSuccess, data } = useWriteContract();
+  const handleTransactionReceipt = useCallback(
+    (receipt: TransactionReceipt) => {
+      const event = receipt.logs[0];
+      if (event && successCallback) {
+        const tokenAddress = event.address as `0x${string}`;
+        successCallback(tokenAddress);
+      }
+    },
+    [successCallback]
+  );
+
+  const watchTransaction = useCallback(
+    async (hash: Hash) => {
+      if (!publicClient) return;
+      try {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        handleTransactionReceipt(receipt);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Transaction failed");
+      }
+    },
+    [publicClient, handleTransactionReceipt]
+  );
+
+  const { writeContract, isPending: isWritePending } = useWriteContract({
+    mutation: {
+      onSuccess: (hash) => {
+        setTxHash(hash);
+        watchTransaction(hash);
+      },
+    },
+  });
 
   const deployToken = async ({
     name,
     symbol,
     decimals,
     initialSupply,
-    publicKey,
+    onSuccess,
   }: DeployTokenParams) => {
     try {
       setError(null);
+      setTxHash(null);
+      setSuccessCallback(() => onSuccess);
+
       const parsedAmount = parseEther(initialSupply);
       const encryptedAmountStr = await encrypt(parsedAmount);
+      const publicKey = getPublicKey();
 
       writeContract({
         address: DISCRETE_ERC20_FACTORY_ADDRESS,
@@ -44,9 +81,9 @@ export function useDeployToken() {
           name,
           symbol,
           decimals,
-          { value: encryptedAmountStr as `0x${string}` },
+          { value: encryptedAmountStr },
           PAILLIER_ADDRESS,
-          { n: publicKey.n, g: publicKey.g },
+          publicKey,
         ],
       });
     } catch (err) {
@@ -55,11 +92,11 @@ export function useDeployToken() {
     }
   };
 
+  const isPending = isWritePending || !!txHash;
+
   return {
     deployToken,
     isPending,
-    isSuccess,
     error,
-    deployedTokenAddress: data as `0x${string}` | undefined,
   };
 }

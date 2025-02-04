@@ -14,6 +14,8 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { useToast } from "@/components/ui/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function DeployTokenDrawer({
   open,
@@ -25,13 +27,37 @@ export function DeployTokenDrawer({
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
   const [initialSupply, setInitialSupply] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const { deployToken, isPending, isSuccess, error, deployedTokenAddress } =
-    useDeployToken();
+  const { deployToken, isPending, error } = useDeployToken();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await deployToken({ name, symbol, initialSupply });
+    await deployToken({
+      name,
+      symbol,
+      initialSupply,
+      decimals: 18,
+      onSuccess: (address) => {
+        // Close the drawer
+        onOpenChange(false);
+
+        // Show success toast
+        toast({
+          title: "Token Deployed Successfully",
+          description: `Your token has been deployed at ${address}`,
+        });
+
+        // Revalidate token list
+        queryClient.invalidateQueries({ queryKey: ["tokenList"] });
+
+        // Reset form
+        setName("");
+        setSymbol("");
+        setInitialSupply("");
+      },
+    });
   };
 
   return (
@@ -74,14 +100,6 @@ export function DeployTokenDrawer({
               <Alert variant="destructive">
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {isSuccess && deployedTokenAddress && (
-              <Alert>
-                <AlertTitle>Success</AlertTitle>
-                <AlertDescription>
-                  Token deployed at address: {deployedTokenAddress}
-                </AlertDescription>
               </Alert>
             )}
             <DrawerFooter>
