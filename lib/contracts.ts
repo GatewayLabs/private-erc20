@@ -1,4 +1,16 @@
-export const DISCRETE_ERC20_FACTORY_ADDRESS = "0x..." as `0x${string}`;
+// Ensure environment variables are defined
+if (!process.env.NEXT_PUBLIC_DISCRETE_ERC20_FACTORY_ADDRESS) {
+  throw new Error("NEXT_PUBLIC_DISCRETE_ERC20_FACTORY_ADDRESS is not defined");
+}
+
+if (!process.env.NEXT_PUBLIC_PAILLIER_ADDRESS) {
+  throw new Error("NEXT_PUBLIC_PAILLIER_ADDRESS is not defined");
+}
+
+export const DISCRETE_ERC20_FACTORY_ADDRESS = process.env
+  .NEXT_PUBLIC_DISCRETE_ERC20_FACTORY_ADDRESS as `0x${string}`;
+export const PAILLIER_ADDRESS = process.env
+  .NEXT_PUBLIC_PAILLIER_ADDRESS as `0x${string}`;
 
 export const DISCRETE_ERC20_FACTORY_ABI = [
   {

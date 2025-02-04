@@ -3,6 +3,7 @@ import { useWriteContract } from "wagmi";
 import {
   DISCRETE_ERC20_FACTORY_ABI,
   DISCRETE_ERC20_FACTORY_ADDRESS,
+  PAILLIER_ADDRESS,
 } from "@/lib/contracts";
 import { encrypt } from "@/lib/encryption";
 import { parseEther } from "viem";
@@ -12,7 +13,6 @@ interface DeployTokenParams {
   symbol: string;
   decimals: number;
   initialSupply: string;
-  paillierAddress: `0x${string}`;
   publicKey: {
     n: `0x${string}`;
     g: `0x${string}`;
@@ -29,7 +29,6 @@ export function useDeployToken() {
     symbol,
     decimals,
     initialSupply,
-    paillierAddress,
     publicKey,
   }: DeployTokenParams) => {
     try {
@@ -46,7 +45,7 @@ export function useDeployToken() {
           symbol,
           decimals,
           { value: encryptedAmountStr as `0x${string}` },
-          paillierAddress,
+          PAILLIER_ADDRESS,
           { n: publicKey.n, g: publicKey.g },
         ],
       });
