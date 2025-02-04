@@ -2,9 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useAccount, useReadContract } from "wagmi";
 import { DISCRETE_ERC20_ABI } from "@/lib/contracts";
 import { decryptBalance } from "@/app/actions/decrypt-balance";
-import { formatEther } from "viem";
+import { formatTokenAmount } from "@/lib/format";
 
-export function useEncryptedBalance(tokenAddress?: `0x${string}`) {
+export function useEncryptedBalance(
+  tokenAddress?: `0x${string}`,
+  decimals: number = 18
+) {
   const { address } = useAccount();
 
   const { data: encryptedBalance, isLoading: isLoadingEncrypted } =
@@ -23,12 +26,12 @@ export function useEncryptedBalance(tokenAddress?: `0x${string}`) {
     isLoading: isLoadingDecrypted,
     error,
   } = useQuery({
-    queryKey: ["decrypted-balance", encryptedBalance, tokenAddress],
+    queryKey: ["decrypted-balance", encryptedBalance, tokenAddress, decimals],
     queryFn: async () => {
       if (!encryptedBalance) return "0";
       try {
         const decryptedHex = await decryptBalance(encryptedBalance);
-        return formatEther(BigInt(decryptedHex));
+        return formatTokenAmount(decryptedHex, decimals);
       } catch (err) {
         console.error("Error decrypting balance:", err);
         return "0";
