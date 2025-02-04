@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatEther } from "viem";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { TokenInfo } from "@/types";
 import { ErrorAlert } from "@/components/error-alert";
 import * as React from "react";
@@ -82,15 +81,6 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
     ref,
   } = useTransactionHistory({ selectedToken });
 
-  const parentRef = React.useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: transactions.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 50,
-    overscan: 5,
-  });
-
   const handleDecrypt = async (transaction: Transaction) => {
     try {
       setDecryptingHashes((prev) => new Set(prev).add(transaction.hash));
@@ -102,7 +92,10 @@ export function TransactionHistory({ selectedToken }: TransactionHistoryProps) {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to decrypt amount. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to decrypt amount. Please try again.",
         variant: "destructive",
       });
     } finally {
