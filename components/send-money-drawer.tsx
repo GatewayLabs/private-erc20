@@ -17,6 +17,7 @@ import { isAddress } from "viem";
 import { useSelectedToken } from "@/hooks/use-selected-token";
 import { useEncryptedBalance } from "@/hooks/use-encrypted-balance";
 import { useToast } from "@/components/ui/use-toast";
+import { useAddress as useBaseAddress } from "@coinbase/onchainkit/identity";
 
 export function SendMoneyDrawer({
   open,
@@ -27,6 +28,9 @@ export function SendMoneyDrawer({
 }) {
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
+  const [resolvedAddress, setResolvedAddress] = useState<`0x${string}` | null>(
+    null
+  );
   const { toast } = useToast();
 
   // Get the selected token info
@@ -37,7 +41,15 @@ export function SendMoneyDrawer({
   const { sendTokens, isPending, isSuccess, error, reset } =
     useSendEncryptedTokens(tokenAddress as `0x${string}`);
 
-  const isValidAddress = isAddress(recipient);
+  // Handle Base name resolution
+  const { data: baseAddress, isLoading: isBaseAddressLoading } = useBaseAddress(
+    {
+      name: recipient.toLowerCase().endsWith(".base.eth")
+        ? recipient
+        : undefined,
+    }
+  );
+
   const parsedAmount = parseFloat(amount);
   const parsedBalance = balance ? parseFloat(balance.replace(/,/g, "")) : 0;
   const isValidAmount =
@@ -48,10 +60,34 @@ export function SendMoneyDrawer({
     if (!open) {
       setAmount("");
       setRecipient("");
+      setResolvedAddress(null);
       reset?.();
     }
     onOpenChange(open);
   };
+
+  // Handle address resolution
+  useEffect(() => {
+    if (!recipient) {
+      setResolvedAddress(null);
+      return;
+    }
+
+    // If it's a valid Ethereum address, use it directly
+    if (isAddress(recipient)) {
+      setResolvedAddress(recipient as `0x${string}`);
+      return;
+    }
+
+    // If it's a Base name, use the resolved address
+    if (recipient.toLowerCase().endsWith(".base.eth")) {
+      setResolvedAddress(baseAddress || null);
+      return;
+    }
+
+    // Invalid input
+    setResolvedAddress(null);
+  }, [recipient, baseAddress]);
 
   // Handle transaction success
   useEffect(() => {
@@ -82,8 +118,8 @@ export function SendMoneyDrawer({
     e.preventDefault();
 
     try {
-      if (!isValidAddress) {
-        throw new Error("Invalid recipient address");
+      if (!resolvedAddress) {
+        throw new Error("Invalid recipient address or name");
       }
 
       if (!isValidAmount) {
@@ -92,7 +128,7 @@ export function SendMoneyDrawer({
 
       await sendTokens({
         amount: parsedAmount.toString(),
-        recipient: recipient as `0x${string}`,
+        recipient: resolvedAddress,
       });
     } catch (error) {
       toast({
@@ -104,6 +140,10 @@ export function SendMoneyDrawer({
     }
   };
 
+  const isValidRecipient = resolvedAddress !== null;
+  const isResolving =
+    isBaseAddressLoading && recipient.toLowerCase().endsWith(".base.eth");
+
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
       <DrawerContent>
@@ -113,14 +153,24 @@ export function SendMoneyDrawer({
           </DrawerHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 px-4">
             <div className="grid gap-2">
-              <Label htmlFor="recipient">Recipient Address</Label>
+              <Label htmlFor="recipient">Recipient Address or Base Name</Label>
               <Input
                 id="recipient"
-                placeholder="0x..."
+                placeholder="0x... or name.base.eth"
                 value={recipient}
                 onChange={(e) => setRecipient(e.target.value)}
-                aria-invalid={recipient !== "" && !isValidAddress}
+                aria-invalid={recipient !== "" && !isValidRecipient}
               />
+              {isResolving && (
+                <p className="text-sm text-muted-foreground">
+                  Resolving name...
+                </p>
+              )}
+              {resolvedAddress && !isAddress(recipient) && (
+                <p className="text-sm text-muted-foreground">
+                  Resolved to: {resolvedAddress}
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="amount">Amount</Label>
@@ -150,9 +200,18 @@ export function SendMoneyDrawer({
             <DrawerFooter>
               <Button
                 type="submit"
-                disabled={isPending || !isValidAddress || !isValidAmount}
+                disabled={
+                  isPending ||
+                  isResolving ||
+                  !isValidRecipient ||
+                  !isValidAmount
+                }
               >
-                {isPending ? "Sending..." : "Send"}
+                {isPending
+                  ? "Sending..."
+                  : isResolving
+                  ? "Resolving..."
+                  : "Send"}
               </Button>
               <DrawerClose asChild>
                 <Button variant="outline">Cancel</Button>
