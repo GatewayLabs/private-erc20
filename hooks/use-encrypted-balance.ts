@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useReadContract, useWatchContractEvent } from "wagmi";
 import { DISCRETE_ERC20_ABI } from "@/lib/contracts";
 import { decryptBalance } from "@/app/actions/decrypt-balance";
 import { formatUnits } from "viem";
+import { useEffect } from "react";
 
 // Helper function to format number with commas
 const formatWithCommas = (value: string) => {
@@ -18,16 +19,19 @@ export function useEncryptedBalance(
   const { address } = useAccount();
 
   // Get the encrypted balance
-  const { data: encryptedBalance, isLoading: isLoadingEncrypted } =
-    useReadContract({
-      address: tokenAddress,
-      abi: DISCRETE_ERC20_ABI,
-      functionName: "balanceOf",
-      args: [address as `0x${string}`],
-      query: {
-        enabled: !!address && !!tokenAddress,
-      },
-    });
+  const {
+    data: encryptedBalance,
+    isLoading: isLoadingEncrypted,
+    refetch: refetchEncrypted,
+  } = useReadContract({
+    address: tokenAddress,
+    abi: DISCRETE_ERC20_ABI,
+    functionName: "balanceOf",
+    args: [address as `0x${string}`],
+    query: {
+      enabled: !!address && !!tokenAddress,
+    },
+  });
 
   // Get the token decimals if not provided
   const { data: tokenDecimals } = useReadContract({
@@ -47,6 +51,7 @@ export function useEncryptedBalance(
     data: balanceData,
     isLoading: isLoadingDecrypted,
     error,
+    refetch: refetchDecrypted,
   } = useQuery({
     queryKey: [
       "decrypted-balance",
@@ -112,6 +117,28 @@ export function useEncryptedBalance(
     },
     enabled: !!encryptedBalance,
   });
+
+  // Watch for Transfer events involving our address
+  useWatchContractEvent({
+    address: tokenAddress,
+    abi: DISCRETE_ERC20_ABI,
+    eventName: "Transfer",
+    onLogs: (logs) => {
+      const relevantTransfer = logs.some(
+        (log) => log.args.from === address || log.args.to === address
+      );
+      if (relevantTransfer) {
+        refetchEncrypted();
+      }
+    },
+  });
+
+  // Automatically refetch decrypted balance when encrypted balance changes
+  useEffect(() => {
+    if (encryptedBalance) {
+      refetchDecrypted();
+    }
+  }, [encryptedBalance, refetchDecrypted]);
 
   return {
     encryptedBalance,
