@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { useWriteContract } from "wagmi";
-import {
-  ENCRYPTED_TOKEN_FACTORY_ABI,
-  ENCRYPTED_TOKEN_FACTORY_ADDRESS,
-} from "@/lib/contracts";
+import { DISCRETE_ERC20_ABI } from "@/lib/contracts";
 import { encrypt } from "@/lib/encryption";
 import { parseEther } from "viem";
-import { EncryptedTransfer } from "@/types";
 
-export function useSendEncryptedTokens() {
+export function useSendEncryptedTokens(tokenAddress: `0x${string}`) {
   const [error, setError] = useState<string | null>(null);
 
   const { writeContract, isPending, isSuccess } = useWriteContract();
@@ -25,21 +21,11 @@ export function useSendEncryptedTokens() {
       const parsedAmount = parseEther(amount);
       const encryptedAmountStr = await encrypt(parsedAmount);
 
-      const transfer: EncryptedTransfer = {
-        to: recipient,
-        encryptedAmount: BigInt(encryptedAmountStr),
-      };
-
       writeContract({
-        address: ENCRYPTED_TOKEN_FACTORY_ADDRESS,
-        abi: ENCRYPTED_TOKEN_FACTORY_ABI,
-        functionName: "transferEncrypted",
-        args: [
-          {
-            to: recipient,
-            encryptedAmount: BigInt(encryptedAmountStr),
-          },
-        ],
+        address: tokenAddress,
+        abi: DISCRETE_ERC20_ABI,
+        functionName: "transfer",
+        args: [recipient, { value: encryptedAmountStr as `0x${string}` }],
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send tokens");

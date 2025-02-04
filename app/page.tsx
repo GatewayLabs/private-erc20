@@ -8,7 +8,6 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import ErrorBoundary from "@/components/error-boundary";
 import { ErrorAlert } from "@/components/error-alert";
 import { useTokenList } from "@/hooks/use-token-list";
-import { useAccount } from "wagmi";
 import { useEncryptedBalance } from "@/hooks/use-encrypted-balance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatEther } from "viem";
@@ -19,12 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { TokenInfo } from "@/types";
+import type { TokenData } from "@/hooks/use-token-list";
 
 export default function Home() {
-  const { address } = useAccount();
-  const { data: tokens = [] } = useTokenList(address);
-  const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(
+  const { tokens } = useTokenList();
+  const [selectedToken, setSelectedToken] = useState<TokenData | null>(
     tokens[0] || null
   );
   const { decryptedBalance, isLoading } = useEncryptedBalance(

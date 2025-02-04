@@ -1,19 +1,87 @@
-import { useQuery } from "@tanstack/react-query";
-import { TokenInfo } from "@/types";
+import { useReadContract, useReadContracts } from "wagmi";
+import {
+  DISCRETE_ERC20_ABI,
+  DISCRETE_ERC20_FACTORY_ABI,
+  DISCRETE_ERC20_FACTORY_ADDRESS,
+} from "@/lib/contracts";
+import { getAddress } from "viem";
 
-async function fetchTokenList(address: string): Promise<TokenInfo[]> {
-  // In a real application, this would fetch from your backend or a token list provider
-  // For now, we'll return a mock list
-  return [
-    { address: "0x123...", name: "Mock Token 1", symbol: "MTK1", decimals: 18 },
-    { address: "0x456...", name: "Mock Token 2", symbol: "MTK2", decimals: 18 },
-  ];
+export interface TokenData {
+  address: `0x${string}`;
+  name: string;
+  symbol: string;
+  decimals: number;
 }
 
-export function useTokenList(address: string | undefined) {
-  return useQuery({
-    queryKey: ["tokenList", address],
-    queryFn: () => (address ? fetchTokenList(address) : Promise.resolve([])),
-    enabled: !!address,
+export function useTokenList() {
+  // Get total number of tokens
+  const { data: tokenCount } = useReadContract({
+    address: DISCRETE_ERC20_FACTORY_ADDRESS,
+    abi: DISCRETE_ERC20_FACTORY_ABI,
+    functionName: "getTokensCount",
   });
+
+  // Get all token addresses
+  const { data: tokens, isLoading } = useReadContracts({
+    contracts: Array.from({ length: Number(tokenCount || 0) }).map(
+      (_, index) => ({
+        address: DISCRETE_ERC20_FACTORY_ADDRESS,
+        abi: DISCRETE_ERC20_FACTORY_ABI,
+        functionName: "getToken",
+        args: [BigInt(index)],
+      })
+    ),
+    query: {
+      enabled: tokenCount !== undefined && tokenCount > 0,
+    },
+  });
+
+  // Get token details
+  const { data: tokenDetails } = useReadContracts({
+    contracts: (tokens || [])
+      .map((token) => {
+        if (!token.result) return [];
+        const address = getAddress(token.result.toString());
+        return [
+          {
+            address,
+            abi: DISCRETE_ERC20_ABI,
+            functionName: "name",
+          },
+          {
+            address,
+            abi: DISCRETE_ERC20_ABI,
+            functionName: "symbol",
+          },
+          {
+            address,
+            abi: DISCRETE_ERC20_ABI,
+            functionName: "decimals",
+          },
+        ];
+      })
+      .flat(),
+    query: {
+      enabled: tokens !== undefined && tokens.length > 0,
+    },
+  });
+
+  const tokenList: TokenData[] =
+    tokens
+      ?.map((token, index) => {
+        if (!token.result) return null;
+        const baseIndex = index * 3;
+        return {
+          address: getAddress(token.result.toString()),
+          name: (tokenDetails?.[baseIndex]?.result as string) || "",
+          symbol: (tokenDetails?.[baseIndex + 1]?.result as string) || "",
+          decimals: Number(tokenDetails?.[baseIndex + 2]?.result || 18),
+        };
+      })
+      .filter((token): token is TokenData => token !== null) || [];
+
+  return {
+    tokens: tokenList,
+    isLoading,
+  };
 }

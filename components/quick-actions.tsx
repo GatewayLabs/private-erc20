@@ -8,7 +8,6 @@ import { DeployTokenDrawer } from "./deploy-token-drawer";
 import { TransactionHistoryDrawer } from "./transaction-history-drawer";
 import { TokenListDrawer } from "./token-list-drawer";
 import { useTokenList } from "@/hooks/use-token-list";
-import { useAccount } from "wagmi";
 
 const actions = [
   {
@@ -35,9 +34,8 @@ const actions = [
 
 export function QuickActions() {
   const [openDrawer, setOpenDrawer] = useState<string | null>(null);
-  const { address } = useAccount();
-  const { data: tokens = [] } = useTokenList(address);
-  const selectedToken = tokens[0]; // For now, use the first token as selected
+  const { tokens } = useTokenList();
+  const selectedToken = tokens[0];
 
   return (
     <>
