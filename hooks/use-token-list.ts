@@ -15,14 +15,18 @@ export interface TokenData {
 
 export function useTokenList() {
   // Get total number of tokens
-  const { data: tokenCount } = useReadContract({
+  const { data: tokenCount, refetch: refetchTokenCount } = useReadContract({
     address: DISCRETE_ERC20_FACTORY_ADDRESS,
     abi: DISCRETE_ERC20_FACTORY_ABI,
     functionName: "getTokensCount",
   });
 
   // Get all token addresses
-  const { data: tokens, isLoading } = useReadContracts({
+  const {
+    data: tokens,
+    isLoading,
+    refetch: refetchTokens,
+  } = useReadContracts({
     contracts: Array.from({ length: Number(tokenCount || 0) }).map(
       (_, index) => ({
         address: DISCRETE_ERC20_FACTORY_ADDRESS,
@@ -37,7 +41,7 @@ export function useTokenList() {
   });
 
   // Get token details
-  const { data: tokenDetails } = useReadContracts({
+  const { data: tokenDetails, refetch: refetchDetails } = useReadContracts({
     contracts: (tokens || [])
       .map((token) => {
         if (!token.result) return [];
@@ -80,8 +84,15 @@ export function useTokenList() {
       })
       .filter((token): token is TokenData => token !== null) || [];
 
+  const refetchAll = async () => {
+    await refetchTokenCount();
+    await refetchTokens();
+    await refetchDetails();
+  };
+
   return {
     tokens: tokenList,
     isLoading,
+    refetchAll,
   };
 }

@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/drawer";
 import { useToast } from "@/components/ui/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSelectedToken } from "@/hooks/use-selected-token";
+import { useTokenList } from "@/hooks/use-token-list";
 
 export function DeployTokenDrawer({
   open,
@@ -28,7 +30,8 @@ export function DeployTokenDrawer({
   const [symbol, setSymbol] = useState("");
   const [initialSupply, setInitialSupply] = useState("");
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { selectToken } = useSelectedToken();
+  const { refetchAll } = useTokenList();
 
   const { deployToken, isPending, error } = useDeployToken();
 
@@ -39,7 +42,7 @@ export function DeployTokenDrawer({
       symbol,
       initialSupply,
       decimals: 18,
-      onSuccess: (address) => {
+      onSuccess: async (address) => {
         // Close the drawer
         onOpenChange(false);
 
@@ -49,8 +52,16 @@ export function DeployTokenDrawer({
           description: `Your token has been deployed at ${address}`,
         });
 
-        // Revalidate token list
-        queryClient.invalidateQueries({ queryKey: ["tokenList"] });
+        // Refetch token list
+        await refetchAll();
+
+        // Set the newly deployed token as selected
+        selectToken({
+          address,
+          name,
+          symbol,
+          decimals: 0,
+        });
 
         // Reset form
         setName("");
